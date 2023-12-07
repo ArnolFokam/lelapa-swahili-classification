@@ -5,6 +5,7 @@
 ### Requirements
 
 - Python 3.8.18
+- CUDA 11.7 (optional)
 
 ### Setup Environment
 
@@ -20,6 +21,12 @@
 
 
 **Note:** All these steps must be carried out in the project's directory.
+
+## Train Model
+
+```bash
+python main.py
+```
 
 
 ## Notebooks

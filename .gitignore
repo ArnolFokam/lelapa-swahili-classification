@@ -16,3 +16,6 @@
 
 # Data-related files
 data/*.csv
+
+# Python-erlate files
+__pycache__/
