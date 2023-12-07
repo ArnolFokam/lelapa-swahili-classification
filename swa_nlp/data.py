@@ -23,7 +23,7 @@ class SwahiliTextClassificationDataset(Dataset):
         """
         
         # setup up the data samples
-        self.dataset_idx = data['id'].to_list()
+        self.dataset_ids = data['id'].to_list()
         sentences = [self.preprocess(text) for text in data['content'].to_list()]
         self.encodings = tokenizer(
             sentences, 
@@ -34,7 +34,7 @@ class SwahiliTextClassificationDataset(Dataset):
         )
         self.y = None
         
-        if 'content' in data.columns:
+        if 'category' in data.columns:
             # get labels from dataframe
             self.y = data['category'].to_list()
 
@@ -45,13 +45,13 @@ class SwahiliTextClassificationDataset(Dataset):
         if self.y is not None:
             item['labels'] = torch.tensor(self.y[idx])
         else:
-            item['labels'] = None
+            item['labels'] = torch.tensor(-1)
         
-        item['dataset_idx'] = self.dataset_idx[idx]
+        item['dataset_ids'] = self.dataset_ids[idx]
         return item
     
     def __len__(self):
-        return len(self.dataset_idx)
+        return len(self.dataset_ids)
     
     @staticmethod
     def preprocess(text):

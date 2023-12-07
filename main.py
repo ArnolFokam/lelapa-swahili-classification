@@ -1,6 +1,8 @@
+from collections import defaultdict
 import random
 import logging
 import argparse
+from time import sleep
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -24,7 +26,7 @@ def parse_args():
     parser.add_argument('--lr', type=float, default=1e-5, help='Learning rate')
     parser.add_argument('--epochs', type=int, default=20, help='Number of training epochs')
     parser.add_argument('--train_batch_size', type=int, default=32, help='Batch size for training')
-    parser.add_argument('--eval_batch_size', type=int, default=32, help='Batch size for evaluation')
+    parser.add_argument('--eval_batch_size', type=int, default=64, help='Batch size for evaluation')
     parser.add_argument('--max_seq_length', type=int, default=512, help='Maximum sequence length')
     parser.add_argument('--num_folds', type=int, default=5, help='Number of training folds for cross-validation')
     args = parser.parse_args()
@@ -33,9 +35,19 @@ def parse_args():
 
 def main():
     
+    logging.basicConfig(
+        level=logging.INFO,  # Set logging level to INFO
+        format='%(asctime)s [%(levelname)s] %(message)s',  # Define log message format
+        handlers=[
+            logging.StreamHandler()  # Also log to the console
+        ]
+    )
+    
     # Training and submission parameters
     args = parse_args()
     DATA_DIR =  get_dir('data')
+    OUTPUT_DIR = get_dir('./')
+    MODEL_NAME="castorini/afriberta_small"
     
     # Setup device
     random.seed(args.seed)
@@ -64,7 +76,7 @@ def main():
     
     # Initialize tokenizer
     tokenizer = AutoTokenizer.from_pretrained(
-        args.model_name,
+        pretrained_model_name_or_path=MODEL_NAME,
         model_max_length=args.max_seq_length
     )
     
@@ -91,7 +103,7 @@ def main():
         
         # Initialize text classification model
         model = HuggingFaceTextClassificationModel(
-            model_name=args.model_name,
+            model_name=MODEL_NAME,
             num_classes=len(label_to_idx)
         )
         model.to(device)
@@ -123,7 +135,7 @@ def main():
                     token_type_ids = batch['token_type_ids'].to(device, dtype=torch.long)
                     
                     # Forward pass
-                    ouput = model(
+                    output = model(
                         input_ids=input_ids,
                         attention_mask=attention_mask,
                         token_type_ids=token_type_ids
@@ -131,7 +143,7 @@ def main():
                     
                     # Backward pass
                     labels = batch['labels'].to(device)
-                    loss = criterion(ouput, labels)
+                    loss = criterion(output, labels)
                     loss.backward()
                     optimizer.step()
                     
@@ -174,21 +186,88 @@ def main():
                     token_type_ids = batch['token_type_ids'].to(device, dtype=torch.long)
                     
                     # Forward pass
-                    ouput = model(
+                    output = model(
                         input_ids=input_ids,
                         attention_mask=attention_mask,
                         token_type_ids=token_type_ids,
                     )
                     
                     labels = batch['labels'].to(device)
-                    loss = criterion(ouput, labels)
+                    loss = criterion(output, labels)
                     
                     total_val_loss += loss.item() * len(input_ids)
                     total_num += len(input_ids)
+                print(total_val_loss / total_num)
+                logging.info(f"Validation Loss Fold-{fold_idx}: {total_val_loss / total_num}")
+        
+        break
+        
+    # Submission
+    
+    model.eval()
+    
+    df_test = df_train = pd.read_csv(DATA_DIR / 'Test.csv')
+    df_test['id'] = df_test['swahili_id']
+    
+    # Initialize Submission Dataaset
+    test_dataset = SwahiliTextClassificationDataset(
+        data=df_test,
+        tokenizer=tokenizer
+    )
+    
+    # Initialize Submission DataLoader
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=args.eval_batch_size, 
+        shuffle=True
+    )
+    
+    predictions = []
+    
+    with torch.no_grad():
+        
+        with tqdm(test_loader, unit="batch") as test_bar:
+        
+            for batch in test_bar:
                 
-                    val_bar.set_postfix(val_loss=total_val_loss / total_num)
+                val_bar.set_description(f"Validation Fold-{fold_idx}")
                 
-        print()
+                # Prepare data
+                input_ids = batch['input_ids'].to(device, dtype=torch.long)
+                attention_mask = batch['attention_mask'].to(device, dtype=torch.bool)
+                token_type_ids = batch['token_type_ids'].to(device, dtype=torch.long)
+                dataset_ids = batch['dataset_ids']
+                
+                # Forward pass
+                output = model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    token_type_ids=token_type_ids,
+                )
+                
+                preds = torch.softmax(output, dim=-1).tolist()
+                predictions.extend(list(zip(dataset_ids, preds)))
+                
+    test_predictions = defaultdict(lambda: [0, 0, 0, 0, 0])
+    test_predictions.update(dict(predictions))
+    
+    # load the sample submission file and update the extent column with the predictions
+    submission_df = pd.read_csv(DATA_DIR / 'SampleSubmission.csv')
+    
+    # ensure the column names matches those from the sample submission
+    columns = [text.lower()  for text in label_to_idx.keys()]
+    
+    # update the extent column with the predictions
+    submission_df.loc[:, columns] = submission_df['swahili_id'].map(test_predictions).to_list()
+    
+    # change id to match expected name
+    submission_df = submission_df.rename(columns={"swahili_id": "test_id"})
+
+    # save the submission file and trained model
+    submission_df.to_csv(OUTPUT_DIR / 'submission.csv', index=False)
+        
+        
+        
 
 
 if __name__ == "__main__":

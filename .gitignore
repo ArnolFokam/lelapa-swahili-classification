@@ -16,6 +16,10 @@
 
 # Data-related files
 data/*.csv
+submission.csv
 
 # Python-erlate files
 __pycache__/
+
+# VSCODE files
+.vscode/*
