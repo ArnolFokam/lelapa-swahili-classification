@@ -1,4 +1,3 @@
-import numpy as np
 from pandas import DataFrame
 
 import torch
@@ -26,7 +25,13 @@ class SwahiliTextClassificationDataset(Dataset):
         # setup up the data samples
         self.dataset_idx = data['id'].to_list()
         sentences = [self.preprocess(text) for text in data['content'].to_list()]
-        self.encodings = tokenizer(sentences, truncation=True, padding=True)
+        self.encodings = tokenizer(
+            sentences, 
+            padding=True,
+            truncation=True,
+            add_special_tokens=True,
+            return_token_type_ids=True,
+        )
         self.y = None
         
         if 'content' in data.columns:
@@ -34,7 +39,6 @@ class SwahiliTextClassificationDataset(Dataset):
             self.y = data['category'].to_list()
 
     def __getitem__(self, idx):
-        item['dataset_idx'] = self.dataset_idx[idx]
         
         item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
 
@@ -42,7 +46,8 @@ class SwahiliTextClassificationDataset(Dataset):
             item['labels'] = torch.tensor(self.y[idx])
         else:
             item['labels'] = None
-            
+        
+        item['dataset_idx'] = self.dataset_idx[idx]
         return item
     
     def __len__(self):

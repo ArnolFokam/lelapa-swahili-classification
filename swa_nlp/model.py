@@ -20,18 +20,24 @@ class HuggingFaceTextClassificationModel(nn.Module):
         """
         
         super().__init__()
-        
         self.encoder = AutoModel.from_pretrained(model_name, return_dict=False)
+        self.uses_token_type_ids = ("token_type_ids" in self.encoder.__call__.__code__.co_varnames)
         self.projector = nn.Sequential(
             nn.Dropout(0.3),
             nn.Linear(768, num_classes)
         )
         
     def forward(self, input_ids, attention_mask, token_type_ids):
-        _, output = self.encoder(
-            input_ids,
+        
+        # build arguments w.r.t model
+        arguments = dict(
+            input_ids=input_ids,
             attention_mask=attention_mask,
-            token_type_ids=token_type_ids
         )
+        
+        if self.uses_token_type_ids:
+            arguments.update(token_type_ids=token_type_ids)
+            
+        _, output = self.encoder(**arguments)
         output = self.projector(output)
         return output

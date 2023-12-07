@@ -1,13 +1,14 @@
 import random
+import logging
 import argparse
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from sklearn.model_selection import StratifiedKFold
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from tqdm import tqdm
 from transformers import AutoTokenizer
 from torch.utils.data import DataLoader
 
@@ -21,8 +22,10 @@ def parse_args():
     parser.add_argument('--model_name', type=str, help='Hugging-Face model name')
     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
     parser.add_argument('--lr', type=float, default=1e-5, help='Learning rate')
-    parser.add_argument('--epochs', type=int, default=40, help='Number of training epochs')
-    parser.add_argument('--train_batch_size', type=int, default=64, help='Batch size for training')
+    parser.add_argument('--epochs', type=int, default=20, help='Number of training epochs')
+    parser.add_argument('--train_batch_size', type=int, default=32, help='Batch size for training')
+    parser.add_argument('--eval_batch_size', type=int, default=32, help='Batch size for evaluation')
+    parser.add_argument('--max_seq_length', type=int, default=512, help='Maximum sequence length')
     parser.add_argument('--num_folds', type=int, default=5, help='Number of training folds for cross-validation')
     args = parser.parse_args()
     return args
@@ -60,15 +63,13 @@ def main():
     skf = StratifiedKFold(n_splits=args.num_folds, shuffle=True, random_state=args.seed)
     
     # Initialize tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    
-    if tokenizer == "castorini/afriberta_small":
-        # Manually set tokenizer max length as recommended 
-        # here https://huggingface.co/castorini/afriberta_small
-        tokenizer.model_max_length = 512 
+    tokenizer = AutoTokenizer.from_pretrained(
+        args.model_name,
+        model_max_length=args.max_seq_length
+    )
     
     # Start Training & Cross-validation
-    for _, (train_idx, val_idx) in enumerate(skf.split(df_train, df_train['category'])):
+    for fold_idx, (train_idx, val_idx) in enumerate(skf.split(df_train, df_train['category'])):
         
         # Get the train and val data for this fold
         train_fold, val_fold = df_train.iloc[train_idx], df_train.iloc[val_idx]
@@ -107,12 +108,14 @@ def main():
         
         for epoch in range(args.epochs):
             
+            total_train_loss, total_num = 0.0, 0
+            
             for batch in epoch_bar:
                 
                 epoch_bar.set_description(f"Epoch {epoch}")
                 
                 # Reset optimizer
-                optim.zero_grad()
+                optimizer.zero_grad()
                 
                 # Prepare data
                 input_ids = batch['input_ids'].to(device, dtype=torch.long)
@@ -132,10 +135,11 @@ def main():
                 loss.backward()
                 optimizer.step()
                 
-                # Logging
-                epoch_bar.set_postfix(train_loss=loss.item())
+                total_train_loss += loss.item() * len(input_ids)
+                total_num += len(input_ids)
                 
-        torch.cuda.empty_cache()
+                # Logging
+                epoch_bar.set_postfix(train_loss=total_train_loss / total_num)
         
         # Validation
         
@@ -150,7 +154,7 @@ def main():
         # Initialize Validation DataLoader
         valid_loader_fold = DataLoader(
             valid_dataset_fold, 
-            batch_size=1, 
+            batch_size=args.eval_batch_size, 
             shuffle=True
         )
         
@@ -158,7 +162,11 @@ def main():
             
             total_val_loss, total_num = 0.0, 0
             
-            for batch in valid_loader_fold:
+            val_bar = tqdm(valid_loader_fold, unit="batch")
+            
+            for batch in val_bar:
+                
+                val_bar.set_description(f"Validation Fold-{fold_idx}")
                 
                 # Prepare data
                 input_ids = batch['input_ids'].to(device, dtype=torch.long)
@@ -169,7 +177,7 @@ def main():
                 ouput = model(
                     input_ids=input_ids,
                     attention_mask=attention_mask,
-                    token_type_ids=token_type_ids
+                    token_type_ids=token_type_ids,
                 )
                 
                 # Backward pass
@@ -179,7 +187,7 @@ def main():
                 total_val_loss += loss.item() * len(input_ids)
                 total_num += len(input_ids)
             
-            epoch_bar.set_postfix(val_loss=total_val_loss / total_num)
+            val_bar.set_postfix(val_loss=total_val_loss / total_num)
 
 
 if __name__ == "__main__":
