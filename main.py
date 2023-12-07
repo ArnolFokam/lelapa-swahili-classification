@@ -104,42 +104,42 @@ def main():
         
         model.train()   
         
-        epoch_bar = tqdm(train_loader_fold, unit="batch")
-        
         for epoch in range(args.epochs):
             
             total_train_loss, total_num = 0.0, 0
             
-            for batch in epoch_bar:
-                
-                epoch_bar.set_description(f"Epoch {epoch}")
-                
-                # Reset optimizer
-                optimizer.zero_grad()
-                
-                # Prepare data
-                input_ids = batch['input_ids'].to(device, dtype=torch.long)
-                attention_mask = batch['attention_mask'].to(device, dtype=torch.bool)
-                token_type_ids = batch['token_type_ids'].to(device, dtype=torch.long)
-                
-                # Forward pass
-                ouput = model(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    token_type_ids=token_type_ids
-                )
-                
-                # Backward pass
-                labels = batch['labels'].to(device)
-                loss = criterion(ouput, labels)
-                loss.backward()
-                optimizer.step()
-                
-                total_train_loss += loss.item() * len(input_ids)
-                total_num += len(input_ids)
-                
-                # Logging
-                epoch_bar.set_postfix(train_loss=total_train_loss / total_num)
+            with tqdm(train_loader_fold, unit="batch") as epoch_bar:
+            
+                for batch in epoch_bar:
+                    
+                    epoch_bar.set_description(f"Epoch {epoch}")
+                    
+                    # Reset optimizer
+                    optimizer.zero_grad()
+                    
+                    # Prepare data
+                    input_ids = batch['input_ids'].to(device, dtype=torch.long)
+                    attention_mask = batch['attention_mask'].to(device, dtype=torch.bool)
+                    token_type_ids = batch['token_type_ids'].to(device, dtype=torch.long)
+                    
+                    # Forward pass
+                    ouput = model(
+                        input_ids=input_ids,
+                        attention_mask=attention_mask,
+                        token_type_ids=token_type_ids
+                    )
+                    
+                    # Backward pass
+                    labels = batch['labels'].to(device)
+                    loss = criterion(ouput, labels)
+                    loss.backward()
+                    optimizer.step()
+                    
+                    total_train_loss += loss.item() * len(input_ids)
+                    total_num += len(input_ids)
+                    
+                    # Logging
+                    epoch_bar.set_postfix(train_loss=total_train_loss / total_num)
         
         # Validation
         
@@ -162,32 +162,33 @@ def main():
             
             total_val_loss, total_num = 0.0, 0
             
-            val_bar = tqdm(valid_loader_fold, unit="batch")
+            with tqdm(valid_loader_fold, unit="batch") as val_bar:
             
-            for batch in val_bar:
+                for batch in val_bar:
+                    
+                    val_bar.set_description(f"Validation Fold-{fold_idx}")
+                    
+                    # Prepare data
+                    input_ids = batch['input_ids'].to(device, dtype=torch.long)
+                    attention_mask = batch['attention_mask'].to(device, dtype=torch.bool)
+                    token_type_ids = batch['token_type_ids'].to(device, dtype=torch.long)
+                    
+                    # Forward pass
+                    ouput = model(
+                        input_ids=input_ids,
+                        attention_mask=attention_mask,
+                        token_type_ids=token_type_ids,
+                    )
+                    
+                    labels = batch['labels'].to(device)
+                    loss = criterion(ouput, labels)
+                    
+                    total_val_loss += loss.item() * len(input_ids)
+                    total_num += len(input_ids)
                 
-                val_bar.set_description(f"Validation Fold-{fold_idx}")
+                    val_bar.set_postfix(val_loss=total_val_loss / total_num)
                 
-                # Prepare data
-                input_ids = batch['input_ids'].to(device, dtype=torch.long)
-                attention_mask = batch['attention_mask'].to(device, dtype=torch.bool)
-                token_type_ids = batch['token_type_ids'].to(device, dtype=torch.long)
-                
-                # Forward pass
-                ouput = model(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    token_type_ids=token_type_ids,
-                )
-                
-                # Backward pass
-                labels = batch['labels'].to(device)
-                loss = criterion(ouput, labels)
-                
-                total_val_loss += loss.item() * len(input_ids)
-                total_num += len(input_ids)
-            
-            val_bar.set_postfix(val_loss=total_val_loss / total_num)
+        print()
 
 
 if __name__ == "__main__":
