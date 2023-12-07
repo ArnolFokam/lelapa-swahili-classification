@@ -1,3 +1,4 @@
+# LaTeX-related files
 *.aux
 *.fdb_latexmk
 *fls
@@ -12,3 +13,6 @@
 *.run.xml
 *.pdf
 *.gz
+
+# Data-related files
+data/*.csv
