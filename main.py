@@ -1,11 +1,10 @@
-from collections import defaultdict
 import random
 import logging
 import argparse
-from time import sleep
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from collections import defaultdict
 from sklearn.model_selection import StratifiedKFold
 
 import torch
@@ -18,30 +17,30 @@ from swa_nlp.utils import get_dir
 from swa_nlp.data import SwahiliTextClassificationDataset
 from swa_nlp.model import HuggingFaceTextClassificationModel
 
+logging.basicConfig(
+    level=logging.INFO,  # Set logging level to INFO
+    format='%(asctime)s [%(levelname)s] %(message)s',  # Define log message format
+    handlers=[
+        logging.StreamHandler()  # Also log to the console
+    ]
+)
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Swahili Text Classification Training and Evaluation')
-    parser.add_argument('--model_name', type=str, help='Hugging-Face model name')
-    parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
+    
     parser.add_argument('--lr', type=float, default=1e-5, help='Learning rate')
+    parser.add_argument('--model_name', type=str, help='Hugging-Face model name')
     parser.add_argument('--epochs', type=int, default=4, help='Number of training epochs')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
+    parser.add_argument('--max_seq_length', type=int, default=512, help='Maximum sequence length')
     parser.add_argument('--train_batch_size', type=int, default=16, help='Batch size for training')
     parser.add_argument('--eval_batch_size', type=int, default=64, help='Batch size for evaluation')
-    parser.add_argument('--max_seq_length', type=int, default=512, help='Maximum sequence length')
     parser.add_argument('--num_folds', type=int, default=3, help='Number of training folds for cross-validation')
-    args = parser.parse_args()
-    return args
+    
+    return parser.parse_args()
     
 
 def main():
-    
-    logging.basicConfig(
-        level=logging.INFO,  # Set logging level to INFO
-        format='%(asctime)s [%(levelname)s] %(message)s',  # Define log message format
-        handlers=[
-            logging.StreamHandler()  # Also log to the console
-        ]
-    )
     
     # Training and submission parameters
     args = parse_args()
@@ -88,8 +87,6 @@ def main():
         
         # Get the train and val data for this fold
         train_fold, val_fold = df_train.iloc[train_idx], df_train.iloc[val_idx]
-        
-        # ==== TRAINING LOOP ==== #
             
         # Initialize Train Dataaset
         train_dataset_fold = SwahiliTextClassificationDataset(

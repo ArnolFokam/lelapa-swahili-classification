@@ -67,7 +67,7 @@ class SwahiliTextClassificationDataset(Dataset):
     
     @staticmethod
     def preprocess(text):
-        # all to lowercase
+        # Transform to lowercase
         text = text.lower()
         
         # Remove hashtags and mentions
@@ -79,18 +79,15 @@ class SwahiliTextClassificationDataset(Dataset):
 
         # Remove URL links
         text = re.sub(r'http\S+', '', text)
-
-        # Remove punctuation and non-alphabetic characters
-        text = re.sub(r'[^\w\s]', '', text)
-
-        # Remove leading and trailing whitespace
-        text = text.strip()
         
-        # remove stop words
+        # Remove stop words and punctuations
         stop = set(stopwords.words('english')).union(set(string.punctuation))
         text = " ".join([word for word in text.split() if word not in stop])
         
-        # replace words with lem
+        # Remove leading and trailing whitespace
+        text = text.strip()
+        
+        # Replace inflected words with base form
         text = " ".join([lem.lemmatize(word) for word in text.split() ])
         
         return text
