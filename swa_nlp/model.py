@@ -26,7 +26,9 @@ class HuggingFaceTextClassificationModel(nn.Module):
         self.uses_token_type_ids = ("token_type_ids" in self.encoder.__call__.__code__.co_varnames)
         self.classifier = nn.Sequential(
             nn.Dropout(0.3),
-            nn.Linear(768, num_classes)
+            nn.Linear(768, 128),
+            nn.ReLU(),
+            nn.Linear(128, num_classes)
         )
         
     def forward(self, input_ids, attention_mask, token_type_ids):
