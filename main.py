@@ -30,12 +30,12 @@ def parse_args():
     
     parser.add_argument('--lr', type=float, default=1e-5, help='Learning rate')
     parser.add_argument('--model_name', type=str, help='Hugging-Face model name')
-    parser.add_argument('--epochs', type=int, default=4, help='Number of training epochs')
+    parser.add_argument('--epochs', type=int, default=5, help='Number of training epochs')
     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
     parser.add_argument('--max_seq_length', type=int, default=512, help='Maximum sequence length')
     parser.add_argument('--train_batch_size', type=int, default=16, help='Batch size for training')
     parser.add_argument('--eval_batch_size', type=int, default=64, help='Batch size for evaluation')
-    parser.add_argument('--num_folds', type=int, default=3, help='Number of training folds for cross-validation')
+    parser.add_argument('--num_folds', type=int, default=5, help='Number of training folds for cross-validation')
     
     return parser.parse_args()
     
