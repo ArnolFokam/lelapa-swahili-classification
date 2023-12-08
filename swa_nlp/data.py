@@ -1,8 +1,20 @@
+import re
+import string
 from pandas import DataFrame
 
 import torch
 from torch.utils.data import Dataset
 from transformers import PreTrainedTokenizer
+
+import nltk.corpus
+
+nltk.download('stopwords')
+from nltk.corpus import stopwords
+
+nltk.download('wordnet') 
+from nltk import WordNetLemmatizer
+
+lem = WordNetLemmatizer()
 
 
 class SwahiliTextClassificationDataset(Dataset):
@@ -55,7 +67,34 @@ class SwahiliTextClassificationDataset(Dataset):
     
     @staticmethod
     def preprocess(text):
+        # all to lowercase
+        text = text.lower()
+        
+        # Remove hashtags and mentions
+        text = re.sub(r'#\w+', '', text)
+        text = re.sub(r'@\w+', '', text)
+
+        # Remove emojis
+        text = re.sub(r'[^\x00-\x7F]+', '', text)
+
+        # Remove URL links
+        text = re.sub(r'http\S+', '', text)
+
+        # Remove punctuation and non-alphabetic characters
+        text = re.sub(r'[^\w\s]', '', text)
+
+        # Remove leading and trailing whitespace
+        text = text.strip()
+        
+        # remove stop words
+        stop = set(stopwords.words('english')).union(set(string.punctuation))
+        text = " ".join([word for word in text.split() if word not in stop])
+        
+        # replace words with lem
+        text = " ".join([lem.lemmatize(word) for word in text.split() ])
+        
         return text
+        
         
         
         
